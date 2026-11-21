@@ -35,9 +35,9 @@ jobs:
 
       - name: Prepare static site
         run: |
-          mkdir -p _site/node_modules/ethers/dist
+          mkdir -p _site/vendor
           cp index.html app.js audio.js registry.js styles.css _site/
-          cp node_modules/ethers/dist/ethers.min.js _site/node_modules/ethers/dist/ethers.min.js
+          cp node_modules/ethers/dist/ethers.min.js _site/vendor/ethers.min.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
@@ -47,3 +47,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

@@ -94,9 +94,16 @@ function localRegistry() {
 
 async function monadRegistry(config) {
   if (!isAddress(config.address)) throw new Error('请填写有效的 Monad 测试网合约地址');
-  const ethers = await import('./node_modules/ethers/dist/ethers.min.js').catch(() => {
-    throw new Error('缺少链上依赖，请在项目目录运行 npm ci 后刷新页面');
-  });
+  let ethers;
+  for (const source of ['./vendor/ethers.min.js', './node_modules/ethers/dist/ethers.min.js', 'https://cdn.jsdelivr.net/npm/ethers@6.15.0/dist/ethers.min.js']) {
+    try {
+      ethers = await import(source);
+      break;
+    } catch {
+      // Try the next browser-compatible source.
+    }
+  }
+  if (!ethers) throw new Error('缺少链上依赖，请刷新页面或检查网络连接');
   const { BrowserProvider, Contract, FetchRequest, JsonRpcProvider } = ethers;
   const address = config.address.toLowerCase();
   const request = new FetchRequest(config.rpc);
@@ -155,3 +162,4 @@ async function monadRegistry(config) {
 export function openRegistry(config) {
   return config.address ? monadRegistry(config) : localRegistry();
 }
+
