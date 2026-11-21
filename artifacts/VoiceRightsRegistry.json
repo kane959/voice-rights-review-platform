@@ -22,20 +22,14 @@
         },
         {
           "indexed": true,
-          "internalType": "bytes32",
-          "name": "projectId",
-          "type": "bytes32"
-        },
-        {
-          "indexed": false,
-          "internalType": "bytes32",
-          "name": "scriptVersion",
-          "type": "bytes32"
+          "internalType": "address",
+          "name": "voiceActor",
+          "type": "address"
         },
         {
           "indexed": true,
           "internalType": "address",
-          "name": "voiceActor",
+          "name": "producer",
           "type": "address"
         }
       ],
@@ -61,32 +55,20 @@
         {
           "indexed": true,
           "internalType": "bytes32",
-          "name": "receiptId",
+          "name": "submissionId",
           "type": "bytes32"
         },
         {
           "indexed": true,
-          "internalType": "bytes32",
-          "name": "authorizationId",
-          "type": "bytes32"
-        },
-        {
-          "indexed": true,
-          "internalType": "bytes32",
-          "name": "fileHash",
-          "type": "bytes32"
-        },
-        {
-          "indexed": false,
-          "internalType": "enum VoiceRightsRegistry.ReviewStatus",
-          "name": "status",
-          "type": "uint8"
-        },
-        {
-          "indexed": false,
           "internalType": "address",
           "name": "reviewer",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum VoiceRightsRegistry.Decision",
+          "name": "decision",
+          "type": "uint8"
         }
       ],
       "name": "ReviewRecorded",
@@ -112,8 +94,33 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "authorizationId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "fileHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SubmissionRegistered",
+      "type": "event"
+    },
+    {
       "inputs": [],
-      "name": "admin",
+      "name": "administrator",
       "outputs": [
         {
           "internalType": "address",
@@ -135,29 +142,19 @@
       "name": "authorizations",
       "outputs": [
         {
-          "internalType": "bytes32",
-          "name": "authorizationId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "projectId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "scriptVersion",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "usageHash",
-          "type": "bytes32"
-        },
-        {
           "internalType": "address",
           "name": "voiceActor",
           "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "producer",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "scopeHash",
+          "type": "bytes32"
         },
         {
           "internalType": "uint64",
@@ -165,9 +162,9 @@
           "type": "uint64"
         },
         {
-          "internalType": "enum VoiceRightsRegistry.AuthorizationStatus",
-          "name": "status",
-          "type": "uint8"
+          "internalType": "bool",
+          "name": "revoked",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -177,27 +174,12 @@
       "inputs": [
         {
           "internalType": "bytes32",
-          "name": "receiptId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "authorizationId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
           "name": "submissionId",
           "type": "bytes32"
         },
         {
-          "internalType": "bytes32",
-          "name": "fileHash",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "enum VoiceRightsRegistry.ReviewStatus",
-          "name": "status",
+          "internalType": "enum VoiceRightsRegistry.Decision",
+          "name": "decision",
           "type": "uint8"
         }
       ],
@@ -214,18 +196,13 @@
           "type": "bytes32"
         },
         {
-          "internalType": "bytes32",
-          "name": "projectId",
-          "type": "bytes32"
+          "internalType": "address",
+          "name": "producer",
+          "type": "address"
         },
         {
           "internalType": "bytes32",
-          "name": "scriptVersion",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "usageHash",
+          "name": "scopeHash",
           "type": "bytes32"
         },
         {
@@ -235,6 +212,34 @@
         }
       ],
       "name": "registerAuthorization",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "authorizationId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "scopeHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "fileHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registerSubmission",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -269,33 +274,13 @@
       "name": "reviews",
       "outputs": [
         {
-          "internalType": "bytes32",
-          "name": "receiptId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "authorizationId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "submissionId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "fileHash",
-          "type": "bytes32"
-        },
-        {
           "internalType": "address",
           "name": "reviewer",
           "type": "address"
         },
         {
-          "internalType": "enum VoiceRightsRegistry.ReviewStatus",
-          "name": "status",
+          "internalType": "enum VoiceRightsRegistry.Decision",
+          "name": "decision",
           "type": "uint8"
         },
         {
@@ -336,6 +321,35 @@
       "name": "setReviewer",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "submissions",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "authorizationId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "fileHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "producer",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     }
   ]

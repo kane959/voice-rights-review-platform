@@ -3,15 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs",
+    "dev": "python start_demo.py --no-browser",
     "chain:check": "node scripts/check-chain.mjs",
-    "chain:deploy": "node scripts/deploy.mjs",
-    "chain:record-authorization": "node scripts/record-chain.mjs",
-    "chain:record-review": "node scripts/record-review.mjs"
+    "chain:deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
-    "ethers": "^6.13.5",
+    "ethers": "6.15.0",
     "solc": "^0.8.30"
   }
 }
