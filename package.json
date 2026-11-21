@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "chain:check": "node scripts/check-chain.mjs",
-    "chain:deploy": "node scripts/deploy.mjs"
+    "chain:deploy": "node scripts/deploy.mjs",
+    "chain:record-authorization": "node scripts/record-chain.mjs",
+    "chain:record-review": "node scripts/record-review.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

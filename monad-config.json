@@ -3,6 +3,14 @@
   "chainId": 10143,
   "rpcUrl": "https://testnet-rpc.monad.xyz",
   "explorerUrl": "https://testnet.monadvision.com",
-  "contractAddress": null,
-  "status": "rpc_ready_contract_pending"
+  "contractAddress": "0x2C58E09Ec80503354B5b18D1F45223ACd7395e75",
+  "status": "deployed",
+  "deploymentTx": "0x6cd87818cc8520b2d4b0e31d614df2c5e11f90190997c79cc3f9264b0f1e9361",
+  "deployer": "0xee2A2AeE3F53716518e3F3c9CbF5BC8AB0D02eC7",
+  "reviewer": "0xee2A2AeE3F53716518e3F3c9CbF5BC8AB0D02eC7",
+  "deployedAt": "2026-11-21T08:20:23.22Z",
+  "demoAuthorizationTx": "0x0df89f6e14d1687c18f9fffd8022edd9dec5b9703ce774087729687894321890",
+  "demoReviewTx": "0xf12786a09ea59ac387902a85c3e8940746c03a790bfd0873b5102a6c883bc61b",
+  "demoReceiptId": "RCPT-47375464",
+  "demoFileHash": "d2a3b8dc09716180c148e8b306cda0e7359c4e6a2b06a3662e3b77109931b86e"
 }

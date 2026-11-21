@@ -1,7 +1,9 @@
 import 'dotenv/config';
+import fs from 'node:fs';
 
 const rpcUrl = process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz';
 const expectedChainId = 10143;
+const config = JSON.parse(fs.readFileSync(new URL('../monad-config.json', import.meta.url), 'utf8'));
 
 async function rpc(method, params = []) {
   const response = await fetch(rpcUrl, {
@@ -27,7 +29,7 @@ console.log(JSON.stringify({
   chainMatches: chainId === expectedChainId,
   latestBlock: blockNumber,
   walletConfigured: Boolean(process.env.MONAD_PRIVATE_KEY),
-  contractConfigured: Boolean(process.env.CONTRACT_ADDRESS),
+  contractConfigured: Boolean(config.contractAddress),
 }, null, 2));
 
 if (chainId !== expectedChainId) process.exitCode = 1;
