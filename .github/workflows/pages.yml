@@ -34,7 +34,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site/vendor
-          cp index.html app.js audio.js registry.js styles.css _site/
+          cp index.html app.js audio.js registry.js styles.css role-portraits.webp _site/
           cp node_modules/ethers/dist/ethers.min.js _site/vendor/ethers.min.js
 
       - name: Upload Pages artifact

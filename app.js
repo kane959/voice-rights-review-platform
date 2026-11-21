@@ -8,11 +8,28 @@ const STORAGE_KEY = 'voice-rights-workspace-v2';
 const DEMO_SCRIPTS = { v1: '第二杯半价，今天就来坐坐。', v2: '第二杯免费，今天就来坐坐。' };
 const SCOPE_FIELDS = ['project', 'version', 'script', 'usage'];
 const PAGES = {
-  authorize: { label: '授权确认', role: '配音员', title: '确认音色授权范围', description: '配音员确认制作方、项目、台词和用途。范围变化后，需要另行签发授权。' },
-  submit: { label: '上传送审', role: '制作方', title: '提交外部制作的成品', description: '选择授权单，填写成品对应的范围。系统核对提交方和授权范围，并为这份文件计算指纹。' },
-  review: { label: '机构审核', role: '审核员', title: '试听送审成品', description: '审核员对照授权和台词，试听指纹一致的音频，再决定通过或驳回。' },
-  verify: { label: '独立核验', role: '接收方', title: '核验收到的音频', description: '选择交付回执并导入收到的文件，查询授权、审核决定以及文件指纹是否一致。' },
+  authorize: {
+    step: '01', label: '签发授权', role: '配音员', title: '确认音色授权范围',
+    description: '有人要使用你的音色时，确认制作方、项目、台词版本和用途，再签发授权单。',
+    action: '签发授权单',
+  },
+  submit: {
+    step: '02', label: '上传送审', role: '制作方', title: '提交外部制作的成品',
+    description: '音频制作完成后，关联授权单并上传成品。系统核对提交方和授权范围，再登记文件指纹。',
+    action: '上传成品',
+  },
+  review: {
+    step: '03', label: '第三方审查', role: '第三方审核员', title: '试听并审查送审成品',
+    description: '收到送审单和原始音频后，对照台词和授权用途试听，决定通过或驳回。通过后签发交付回执。',
+    action: '审查成品',
+  },
+  verify: {
+    step: '04', label: '独立核验', role: '接收方', title: '核验收到的音频',
+    description: '品牌方或发行方收到音频和交付回执后，查询授权和审核记录，并核对文件指纹。',
+    action: '核验交付文件',
+  },
 };
+const WAVEFORM = [13, 24, 17, 31, 44, 22, 35, 57, 73, 36, 52, 91, 65, 100, 74, 50, 83, 62, 36, 59, 41, 24, 34, 19, 25, 12, 17];
 const app = document.querySelector('#app');
 
 function readStorage(key, fallback) {
@@ -32,7 +49,7 @@ const defaultScope = {
 const defaultExpiry = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
 let config = prefs.config ?? { address: DEFAULT_CONTRACT, rpc: DEFAULT_RPC };
 let registry = await openRegistry({});
-let page = Object.hasOwn(PAGES, prefs.page) ? prefs.page : 'authorize';
+let page = 'home';
 let authDraft;
 let submitDraft;
 let authorization;
@@ -215,7 +232,7 @@ function authorizationPage() {
         ${isLocal() ? '<button class="btn ghost" id="script-v2" type="button">填入第二版示例</button>' : ''}
       </div>
     </form>
-    <aside class="rail"><section class="card pad">
+    <section class="card pad">
       <div class="card-title"><div><h2>已签发授权</h2></div></div>
       ${documentPicker('authorization', authorization?.document.id, '选择授权单')}
       ${authorization ? `<div class="detail-grid">
@@ -233,9 +250,10 @@ function authorizationPage() {
       </div>
       <div class="actions">
         <button class="btn ghost" id="export-authorization">下载授权单</button>
+        ${isLocal() && authorizationStatus(authorization.record) === '有效' ? '<button class="btn copper" data-page="submit">下一步 · 上传送审</button>' : ''}
         ${authorization.record.revoked ? '' : '<button class="btn ghost" id="revoke-authorization">撤销所选授权</button>'}
       </div>` : ''}
-    </section></aside>
+    </section>
   </div>`;
 }
 
@@ -244,6 +262,7 @@ function submissionPage() {
     <form class="card pad" id="submit-form">
       <div class="card-title"><div><h2>成品送审</h2></div></div>
       ${documentPicker('authorization', authorization?.document.id, '关联授权单')}
+      ${importControl('authorization', '导入配音员的授权单')}
       ${isLocal() ? `<div class="party-fields">${field('producer', '提交方', submitDraft.producer)}</div>` : ''}
       ${scopeFields(submitDraft)}
       ${uploadZone('submit-audio', '选择送审音频', pendingAudio?.file)}
@@ -252,13 +271,13 @@ function submissionPage() {
         ${isLocal() ? '<button class="btn ghost" id="load-sample" type="button">载入演示样音</button>' : ''}
       </div>
     </form>
-    <aside class="rail"><section class="card pad">
+    <section class="card pad">
       <div class="card-title"><div><h2>交接材料</h2></div></div>
-      ${importControl('authorization', '导入配音员的授权单')}
       ${documents('submission').length ? `${documentPicker('submission', reviewCase?.document.id, '选择已送审记录')}
-        ${reviewCase ? '<div class="actions"><button class="btn ghost" id="export-submission">下载送审单</button></div>' : ''}
-        <p class="hint">将送审单和原始音频交给审核员。</p>` : ''}
-    </section></aside>
+        ${reviewCase ? `<div class="actions"><button class="btn ghost" id="export-submission">下载送审单</button>
+          ${isLocal() ? '<button class="btn copper" data-page="review">下一步 · 第三方审查</button>' : ''}</div>` : ''}
+        <p class="hint">将送审单和原始音频交给审核员。</p>` : '<p class="hint">正式送审后，可在这里下载送审单。</p>'}
+    </section>
   </div>`;
 }
 
@@ -270,6 +289,7 @@ function reviewPage() {
     <section class="card pad">
       <div class="card-title"><div><h2>待审成品</h2></div></div>
       ${documentPicker('submission', current?.document.id, '选择送审记录')}
+      ${importControl('submission', '导入制作方的送审单')}
       ${current ? `<div class="detail-grid">
         ${detail('项目', current.document.scope.project)}
         ${detail('用途', current.document.scope.usage)}
@@ -288,16 +308,12 @@ function reviewPage() {
         : uploadZone('review-audio', '导入送审原音频')}
       ${status ? `<div class="detail-grid">
         ${detail('审核决定', approved ? '已通过' : '已驳回')}${detail('审核人', current.decision.reviewer)}
-      </div>${approved ? '<div class="actions"><button class="btn ghost" id="export-receipt">下载交付回执</button></div>' : ''}` : `
+      </div>${approved ? `<div class="actions"><button class="btn ghost" id="export-receipt">下载交付回执</button>
+        ${isLocal() ? '<button class="btn copper" id="verify-handoff">下一步 · 独立核验</button>' : ''}</div>` : ''}` : `
       <label class="review-confirm"><input type="checkbox" id="review-confirm"${reviewAudio ? '' : ' disabled'}> 已试听实际文件，并核对台词和用途</label>
       <div class="actions"><button class="btn copper" id="approve" disabled>通过并签发回执</button>
       <button class="btn ghost" id="reject" disabled>驳回</button></div>`}` : '<div class="empty">选择或导入一份送审单。</div>'}
     </section>
-    <aside class="rail"><section class="card pad">
-      <div class="card-title"><div><h2>接收制作方的材料</h2></div></div>
-      ${importControl('submission', '导入制作方的送审单')}
-      <p class="hint">审核员判断录音实际读了什么，以及成品是否符合授权用途。</p>
-    </section></aside>
   </div>`;
 }
 
@@ -306,7 +322,14 @@ function verdictMarkup() {
   const { submission, grant, decision, matches } = proof;
   const active = authorizationStatus(grant);
   const approved = decision?.decision === 'approved';
-  return `<div class="detail-grid">
+  const resultClass = !matches ? 'mismatch' : approved && active === '有效' ? 'match' : 'caution';
+  return `${matches === null ? '' : `<div id="verify-result" class="verify-result ${resultClass}" role="status" tabindex="-1">
+    <h3>${matches ? '文件匹配' : '文件不匹配'}</h3>
+    <p>${!matches ? '文件指纹与获审成品不同，无法沿用这份回执上的审核结果。' :
+      approved && active === '有效' ? '文件指纹一致，审核已通过，授权当前有效。' :
+      `文件指纹一致，当前审核${decision ? (approved ? '已通过' : '已驳回') : '未完成'}，授权${active}。`}</p>
+  </div>`}
+  <div class="detail-grid">
     ${detail('回执编号', receipt.id, true)}
     ${detail('授权人', grant?.voiceActor ?? '未知')}
     ${detail('授权状态', active)}
@@ -316,12 +339,7 @@ function verdictMarkup() {
     ${detail('授权编号', submission.authorizationId, true)}
     ${detail('登记的文件指纹', submission.fileHash, true)}
     ${verifyAudio ? detail('收到的文件指纹', verifyAudio.hash, true) : ''}
-  </div>${matches === null ? '' : `<div class="verify-result ${matches && approved && active === '有效' ? 'match' : 'mismatch'}" role="status">
-    <h3>${matches ? '文件匹配' : '文件不匹配'}</h3>
-    <p>${!matches ? '这份文件的指纹与回执关联的成品不同。' :
-      approved && active === '有效' ? '文件指纹一致，审核已通过，授权当前有效。' :
-      `文件指纹一致，当前审核${decision ? (approved ? '已通过' : '已驳回') : '未完成'}，授权${active}。`}</p>
-  </div>`}`;
+  </div>`;
 }
 
 function verificationPage() {
@@ -329,6 +347,8 @@ function verificationPage() {
     <section class="card pad">
       <div class="card-title"><div><h2>回执与音频</h2></div></div>
       ${documentPicker('receipt', receipt?.id, '选择交付回执')}
+      ${importControl('receipt', '导入审核方的回执')}
+      <p class="hint">${isLocal() ? '当前查询本机浏览器里的演示账本。' : '当前查询配置的 Monad 合约，核验无需连接钱包。'}</p>
       ${receipt ? uploadZone('verify-audio', '选择要核验的音频', verifyAudio?.file) : '<div class="empty">请选择或导入一份交付回执。</div>'}
       ${isLocal() && receipt ? `<div class="actions">
         <button class="btn ghost" id="verify-original">用送审原件核验</button>
@@ -336,52 +356,105 @@ function verificationPage() {
       </div>` : ''}
       ${verdictMarkup()}
     </section>
-    <aside class="rail"><section class="card pad">
-      <div class="card-title"><div><h2>接收交付回执</h2></div></div>
-      ${importControl('receipt', '导入审核方的回执')}
-      <p class="hint">${isLocal() ? '当前使用浏览器本地账本。' : '使用配置的 Monad 合约查询，核验无需连接钱包。'}</p>
-    </section></aside>
   </div>`;
+}
+
+function landingPage() {
+  return `<section class="hero" aria-labelledby="page-title">
+    <div class="hero-copy">
+      <p class="hero-label">音色授权与第三方审查平台</p>
+      <h1 id="page-title" tabindex="-1">一段声音，<br><em>有据可查。</em></h1>
+      <p class="lede">谁授权了这段声音，谁审核了成品，收到的音频是否就是当时获批的那一份？</p>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="signal-orbit"><div class="signal">${WAVEFORM.map(height => `<i style="--height:${height}%"></i>`).join('')}</div></div>
+      <span class="signal-caption"><span>文件指纹</span><span>SHA-256</span></span>
+    </div>
+  </section>
+  <section aria-labelledby="role-title" class="role-section">
+    <div class="section-head"><h2 id="role-title">选择你的角色</h2><p>按交付顺序排列，也可以直接进入你要办理的一步。</p></div>
+    <ol class="role-grid">
+      ${Object.entries(PAGES).map(([key, item]) => `<li class="role-card tone-${key}">
+        <button type="button" class="role-entry" data-page="${key}" aria-labelledby="role-${key} action-${key}" aria-describedby="description-${key}">
+          <span class="portrait portrait-${key}" aria-hidden="true"></span>
+          <span class="role-copy">
+            <span class="step-label"><span>${item.step}</span> ${item.label}</span>
+            <strong id="role-${key}" class="role-name">${item.role}</strong>
+            <span id="description-${key}" class="role-description">${item.description}</span>
+            <span id="action-${key}" class="role-action">${item.action}</span>
+          </span>
+        </button>
+      </li>`).join('')}
+    </ol>
+  </section>
+  <section class="responsibility" aria-label="审查分工">
+    <div><span class="duty-icon" aria-hidden="true">≋</span><div><h3>系统核对记录与文件</h3><p>提交方、授权范围和文件指纹都可以核对。</p></div></div>
+    <div><span class="duty-icon" aria-hidden="true">◎</span><div><h3>审核员判断录音内容</h3><p>试听成品，对照授权台词，判断成品是否符合授权用途。</p></div></div>
+  </section>`;
+}
+
+function workspacePage(current) {
+  const pages = { authorize: authorizationPage, submit: submissionPage, review: reviewPage, verify: verificationPage };
+  return `<nav class="flow" aria-label="交付流程">
+    <ol>${Object.entries(PAGES).map(([key, item]) => `<li class="tone-${key}">
+      <button type="button" data-page="${key}"${key === page ? ' aria-current="step"' : ''}>
+        <span>${item.step}</span> ${item.label}
+      </button>
+    </li>`).join('')}</ol>
+  </nav>
+  <section class="page-head" aria-labelledby="page-title">
+    <div><p class="step-label">${current.role}</p><h1 id="page-title" tabindex="-1">${current.title}</h1><p class="lede">${current.description}</p></div>
+    <span class="portrait portrait-${page}" aria-hidden="true"></span>
+  </section>
+  ${pages[page]()}`;
 }
 
 function render() {
   if (mediaUrl) URL.revokeObjectURL(mediaUrl);
   mediaUrl = page === 'review' && reviewAudio ? URL.createObjectURL(reviewAudio) : null;
   const current = PAGES[page];
-  const pages = { authorize: authorizationPage, submit: submissionPage, review: reviewPage, verify: verificationPage };
   app.innerHTML = `
-    <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">声</div><div class="brand-name">声证 / VOICE PROOF</div></div>
-      <nav class="nav" aria-label="工作台">${Object.entries(PAGES).map(([key, item]) => `
-        <button data-page="${key}" class="${key === page ? 'active' : ''}"${key === page ? ' aria-current="step"' : ''}>${item.label}</button>
-      `).join('')}</nav>
-      <div class="sidebar-spacer"></div>
-      <div class="network-card"><div class="network-row"><span>当前账本</span><strong class="network-value">${networkLabel()}</strong></div></div>
-    </aside>
-    <main class="main">
-      <header class="topbar"><div class="crumb">工作台 / <strong>${current.role}</strong></div></header>
-      <section class="content">
-        <div class="page-head"><div><h1>${current.title}</h1><p class="lede">${current.description}</p></div></div>
-        <details id="network-settings" class="network-settings"${configOpen ? ' open' : ''}>
-          <summary>网络配置 · ${networkLabel()}</summary>
-          <form id="network-form">
-            <div class="field-grid">
-              ${field('address', 'Monad 测试网合约地址', config.address, { prefix: 'network', required: false })}
-              ${field('rpc', 'Monad 测试网 RPC', config.rpc, { prefix: 'network', required: false })}
-            </div>
-            <div class="actions"><button class="btn primary" type="submit">连接 Monad 测试网</button>
-            <button class="btn ghost" id="use-local" type="button">使用本地演示</button></div>
-          </form>
-        </details>
-        ${notice ? `<div class="notice ${notice.kind} feedback" role="${notice.kind === 'error' ? 'alert' : 'status'}">${escapeHtml(notice.message)}</div>` : ''}
-        ${pages[page]()}
+    <header class="site-header">
+      <div class="header-inner">
+        <button type="button" class="brand" data-page="home" aria-label="声证 · 角色大厅">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="brand-name">声证 <span>VOICE PROOF</span></span>
+        </button>
+        <div class="header-actions">
+          ${current ? '<button type="button" class="home-link" data-page="home">选择角色</button>' : ''}
+          <button type="button" id="network-toggle" class="network-toggle" aria-controls="network-settings" aria-expanded="${configOpen}" aria-label="网络配置 · ${networkLabel()}">
+            <span class="network-dot" aria-hidden="true"></span>${networkLabel()}<span class="chevron" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+    <main class="content ${current ? `workspace tone-${page}` : 'landing'}">
+      <section id="network-settings" class="network-settings"${configOpen ? '' : ' hidden'} aria-labelledby="network-title">
+        <h2 id="network-title">网络配置</h2>
+        <form id="network-form">
+          <div class="field-grid">
+            ${field('address', 'Monad 测试网合约地址', config.address, { prefix: 'network', required: false })}
+            ${field('rpc', 'Monad 测试网 RPC', config.rpc, { prefix: 'network', required: false })}
+          </div>
+          <div class="actions"><button class="btn primary" type="submit">连接 Monad 测试网</button>
+          <button class="btn ghost" id="use-local" type="button">使用本地演示</button></div>
+        </form>
       </section>
+      ${notice ? `<div id="feedback" class="notice ${notice.kind} feedback" tabindex="-1" role="${notice.kind === 'error' ? 'alert' : 'status'}">${escapeHtml(notice.message)}</div>` : ''}
+      ${current ? workspacePage(current) : landingPage()}
     </main>`;
   bindEvents();
 }
 
+function focusPage() {
+  window.scrollTo(0, 0);
+  document.getElementById('page-title').focus({ preventScroll: true });
+}
+
 async function run(task) {
   if (busy) return;
+  const previousPage = page;
+  const previousAudio = verifyAudio;
   busy = true;
   notice = null;
   app.querySelectorAll('button, input, select, textarea').forEach(control => { control.disabled = true; });
@@ -393,6 +466,9 @@ async function run(task) {
   } finally {
     busy = false;
     render();
+    if (page !== previousPage) focusPage();
+    else if (notice) document.getElementById('feedback').focus();
+    else if (page === 'verify' && verifyAudio && verifyAudio !== previousAudio) document.getElementById('verify-result').focus();
   }
 }
 
@@ -454,14 +530,16 @@ function bindForm(id, action) {
 
 function bindEvents() {
   app.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.page === page) return;
     page = button.dataset.page;
-    prefs.page = page;
-    savePrefs();
     notice = null;
     render();
+    focusPage();
   }));
-  listen('network-settings', 'toggle', event => {
-    if (event.currentTarget.isConnected) configOpen = event.currentTarget.open;
+  listen('network-toggle', 'click', event => {
+    configOpen = !configOpen;
+    event.currentTarget.setAttribute('aria-expanded', String(configOpen));
+    document.getElementById('network-settings').hidden = !configOpen;
   });
   bindForm('network-form', form => {
     const address = form.elements.address.value.trim();
@@ -493,6 +571,10 @@ function bindEvents() {
   });
   listen('export-submission', 'click', () => download(reviewCase.document));
   listen('export-receipt', 'click', () => download(handoff('receipt', reviewCase.document.id)));
+  listen('verify-handoff', 'click', () => run(async () => {
+    await selectReceipt(handoff('receipt', reviewCase.document.id));
+    page = 'verify';
+  }));
   bindAudio('submit-audio', chooseSubmissionAudio);
   bindAudio('review-audio', attachReviewAudio);
   bindAudio('verify-audio', verifyFile);
