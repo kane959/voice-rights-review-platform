@@ -1,0 +1,8 @@
+{
+  "network": "Monad Testnet",
+  "chainId": 10143,
+  "rpcUrl": "https://testnet-rpc.monad.xyz",
+  "explorerUrl": "https://testnet.monadvision.com",
+  "contractAddress": null,
+  "status": "rpc_ready_contract_pending"
+}

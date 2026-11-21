@@ -31,6 +31,7 @@ contract VoiceRightsRegistry {
     mapping(bytes32 => Authorization) public authorizations;
     mapping(bytes32 => Review) public reviews;
     mapping(address => bool) public reviewers;
+    address public admin;
 
     event ReviewerSet(address indexed reviewer, bool allowed);
     event AuthorizationRegistered(bytes32 indexed authorizationId, bytes32 indexed projectId, bytes32 scriptVersion, address indexed voiceActor);
@@ -42,13 +43,18 @@ contract VoiceRightsRegistry {
         _;
     }
 
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "admin only");
+        _;
+    }
+
     constructor(address initialReviewer) {
+        admin = msg.sender;
         reviewers[initialReviewer] = true;
         emit ReviewerSet(initialReviewer, true);
     }
 
-    function setReviewer(address reviewer, bool allowed) external {
-        // Production deployment should replace this with an administrator role.
+    function setReviewer(address reviewer, bool allowed) external onlyAdmin {
         reviewers[reviewer] = allowed;
         emit ReviewerSet(reviewer, allowed);
     }

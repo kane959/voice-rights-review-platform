@@ -1,11 +1,13 @@
 # 声证 / 音色授权与第三方审查平台
 
-这是根据《音色授权与第三方审查平台-团队方案》落地的本地演示 MVP。它把方案里的四步流程接在同一份浏览器状态中：
+这是根据《音色授权与第三方审查平台-团队方案》落地的 MVP。它把方案里的四步流程接在同一份浏览器状态中，并已接入 Monad Testnet 的只读 RPC：
 
 1. 配音员签发第一版或第二版授权；
-2. 制作方选择台词版本，上传或载入演示音频，并计算 SHA-256 文件指纹；
-3. 审核员试听演示音频，审核通过后生成回执；
+2. 制作方选择台词版本，上传真实音频或载入仓库内的 TTS 演示音频，并计算 SHA-256 文件指纹；
+3. 审核员试听具体音频，审核通过后生成回执；
 4. 接收方用回执和另一份文件核验，直观看到“匹配 / 不匹配”。
+
+链上配置位于 `monad-config.json`。当前文件中的 `contractAddress` 为空，表示 RPC 已配置但合约尚未部署。
 
 ## 运行
 
@@ -15,7 +17,7 @@
 python -m http.server 4173
 ```
 
-然后访问 <http://localhost:4173>。
+然后访问 <http://localhost:4173>。左下角会显示 RPC 连通状态和合约状态。
 
 也可以使用 Node：
 
@@ -23,18 +25,48 @@ python -m http.server 4173
 npx serve .
 ```
 
-`contracts/VoiceRightsRegistry.sol` 是与演示字段对应的最小合约草稿，当前未部署，也没有接入钱包或 RPC。
-
 ## 演示路径
 
 - 进入“授权确认”，默认是只覆盖第一版的授权。
 - 进入“上传送审”，选择第二版并点击“正式送审”，页面会提示缺少匹配授权。
 - 返回“授权确认”，签发第二版授权；再回到“上传送审”，载入演示音频并正式送审。
-- 进入“机构审核”，通过文件并签发回执。
+- 进入“机构审核”，试听 WAV 文件，通过后签发回执。
 - 进入“独立核验”，分别点击“载入获批文件并核验”和“换成另一份文件”，观察匹配与不匹配结果。
 
-## 边界
+## Monad 测试网部署
 
-- 演示音频是合成占位文件，未包含真实配音；页面会把它标成演示音频。
-- Monad 测试网尚未配置钱包、合约地址或 RPC。界面中的交易编号和账本是本地演示数据，不能当作真实链上交易证明。
+官方测试网参数：
+
+- Chain ID：`10143`
+- RPC：`https://testnet-rpc.monad.xyz`
+- 浏览器：<https://testnet.monadvision.com>
+- 水龙头：<https://faucet.monad.xyz>
+
+安装依赖并复制本地配置：
+
+```powershell
+npm install
+Copy-Item .env.example .env
+```
+
+在 `.env` 中填写专用测试钱包私钥（不要提交 `.env`），先检查 RPC：
+
+```powershell
+npm run chain:check
+```
+
+确认部署钱包有 MON 测试币后部署：
+
+```powershell
+npm run chain:deploy
+```
+
+部署脚本会编译 `contracts/VoiceRightsRegistry.sol`，把 ABI 写入 `artifacts/VoiceRightsRegistry.json`，部署合约，并更新 `monad-config.json` 中的合约地址、交易哈希和部署者地址。合约构造函数会把部署者设为管理员，并将 `REVIEWER_ADDRESS`（未填写时为部署者）设为审核员。
+
+合约部署后，把更新后的 `monad-config.json` 和 `artifacts/VoiceRightsRegistry.json` 提交到 GitHub，队友启动静态页面即可读取链状态。
+
+## 当前边界
+
+- `assets/coffee-ad-v1-demo.wav` 和 `assets/coffee-ad-v2-demo.wav` 是通过 Windows TTS 生成的可播放演示音频，不是配音员真实录音。要完成真实授权验收，需要把它们替换成团队准备好的录音，并保留真实授权材料在链下。
+- 公共 RPC 已配置并可读；合约部署需要一个有测试币的专用钱包。部署脚本不会生成、上传或打印私钥。
 - 原始音频、台词正文和审核材料仅在浏览器内处理；生产版需要接入对象存储、身份认证、合约和审计日志。

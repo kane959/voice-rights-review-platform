@@ -10,10 +10,12 @@ const demo = {
     v2: { label: '第二版台词', text: '第二杯免费，今天就来坐坐。' },
   },
   audio: {
-    v1: { name: 'coffee-ad-v1-demo.wav', content: 'SYNTHETIC_AUDIO|coffee|v1|second-cup-half-price' },
-    v2: { name: 'coffee-ad-v2-demo.wav', content: 'SYNTHETIC_AUDIO|coffee|v2|second-cup-free' },
+    v1: { name: 'coffee-ad-v1-demo.wav', src: 'assets/coffee-ad-v1-demo.wav' },
+    v2: { name: 'coffee-ad-v2-demo.wav', src: 'assets/coffee-ad-v2-demo.wav' },
   },
 };
+
+const monad = { rpcUrl: 'https://testnet-rpc.monad.xyz', chainId: 10143, contractAddress: null };
 
 const freshState = () => ({
   page: 'authorize',
@@ -56,7 +58,7 @@ function render() {
       <div><div class="side-label">工作台</div><nav class="nav">${navButton('authorize','01','授权确认')} ${navButton('submit','02','上传送审')} ${navButton('review','03','机构审核')} ${navButton('verify','04','独立核验')}</nav></div>
       <div class="sidebar-spacer"></div>
       <div class="project-chip">当前项目<br><strong>${escapeHtml(demo.project)}</strong></div>
-      <div class="network-card"><div class="network-row"><span>记录网络</span><span class="network-value"><i class="dot"></i>本地演示</span></div><div class="network-row"><span>Monad 测试网</span><span class="network-value">未配置</span></div></div>
+      <div class="network-card"><div class="network-row"><span>记录网络</span><span class="network-value"><i class="dot" id="rpcDot"></i><span id="rpcState">RPC 检查中</span></span></div><div class="network-row"><span>Monad 测试网</span><span class="network-value" id="chainState">10143 · 合约待部署</span></div></div>
     </aside>
     <main class="main">
       <header class="topbar"><div class="crumb">项目 / ${escapeHtml(demo.project)} / <strong>${pageTitle()}</strong></div><div class="role-switcher"><span>当前角色</span><select id="roleSelect"><option value="voice" ${state.role==='voice'?'selected':''}>配音员 · 林岚</option><option value="producer" ${state.role==='producer'?'selected':''}>制作方 · 南岸工作室</option><option value="reviewer" ${state.role==='reviewer'?'selected':''}>审核员 · 周岑</option><option value="recipient" ${state.role==='recipient'?'selected':''}>接收方 · 独立核验</option></select></div></header>
@@ -109,24 +111,26 @@ function bindEvents() {
   const input=document.querySelector('#audioInput'); const zone=document.querySelector('#uploadZone');
   document.querySelector('#chooseAudio')?.addEventListener('click', () => input?.click()); input?.addEventListener('change', e => handleAudio(e.target.files?.[0]));
   zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); }); zone?.addEventListener('dragleave', () => zone.classList.remove('dragover')); zone?.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleAudio(e.dataTransfer.files?.[0]); });
-  document.querySelector('#loadSample')?.addEventListener('click', () => { const v=document.querySelector('#scriptVersionSelect').value; const sample=demo.audio[v]; handleAudio({ name:sample.name, size:sample.content.length, arrayBuffer: async()=>new TextEncoder().encode(sample.content).buffer, demoVersion:v }); });
+  document.querySelector('#loadSample')?.addEventListener('click', async () => { const v=document.querySelector('#scriptVersionSelect').value; const sample=await getDemoAudio(v); handleAudio(sample); });
   document.querySelector('#submitReview')?.addEventListener('click', submitForReview);
   document.querySelectorAll('[data-submission]').forEach(b => b.addEventListener('click', () => { state.selectedSubmission=b.dataset.submission; persist(); render(); }));
   document.querySelector('#approveSubmission')?.addEventListener('click', approve);
   document.querySelector('#rejectSubmission')?.addEventListener('click', reject);
-  document.querySelector('#playSample')?.addEventListener('click', () => playTone());
+  document.querySelector('#playSample')?.addEventListener('click', () => playDemoAudio(selectedSubmission()?.scriptVersion || 'v1'));
   const vi=document.querySelector('#verifyInput'); const vz=document.querySelector('#verifyZone'); document.querySelector('#chooseVerify')?.addEventListener('click',()=>vi?.click()); vi?.addEventListener('change',e=>handleVerifyFile(e.target.files?.[0])); vz?.addEventListener('dragover',e=>{e.preventDefault();vz.classList.add('dragover')}); vz?.addEventListener('dragleave',()=>vz.classList.remove('dragover')); vz?.addEventListener('drop',e=>{e.preventDefault();vz.classList.remove('dragover');handleVerifyFile(e.dataTransfer.files?.[0])});
   document.querySelector('#verifyMatchSample')?.addEventListener('click', () => setVerifySample('match'));
   document.querySelector('#verifyOtherSample')?.addEventListener('click', () => setVerifySample('mismatch'));
 }
 
+async function getDemoAudio(version) { const sample = demo.audio[version]; const response = await fetch(sample.src); if (!response.ok) throw new Error(`演示音频加载失败: ${response.status}`); const buffer = await response.arrayBuffer(); return { name: sample.name, size: buffer.byteLength, arrayBuffer: async () => buffer, demoVersion: version }; }
 async function handleAudio(file) { if(!file) return; const buffer=await file.arrayBuffer(); const hash=await sha256Bytes(buffer); window.__pendingAudio={fileName:file.name, fileSize:file.size || buffer.byteLength, fileHash:hash, demoVersion:file.demoVersion || null}; const zone=document.querySelector('#uploadZone'); if(zone) zone.innerHTML=`<div class="upload-icon">✓</div><strong>${escapeHtml(file.name)}</strong><p>已计算文件指纹 ${escapeHtml(shortHash(hash))}</p>`; }
 async function submitForReview() { const version=document.querySelector('#scriptVersionSelect')?.value || 'v1'; const auth=currentAuth(); if(version !== auth.scriptVersion && !(auth.scriptVersion==='v2' && version==='v1')) { setNotice('error','缺少匹配授权','当前授权只覆盖第一版台词；第二版必须先单独签发授权。'); return; } if(!window.__pendingAudio) { setNotice('error','还没有音频文件','先载入演示音频或选择一份外部成品。'); return; } const p=window.__pendingAudio; const submission={id:`SUB-${Date.now()}`,scriptVersion:version,authorizationId:auth.id,fileName:p.fileName,fileHash:p.fileHash,fileSize:p.fileSize,submittedAt:nowLabel(),status:'pending'}; state.submissions=[submission,...state.submissions]; state.selectedSubmission=submission.id; window.__pendingAudio=null; persist(); setNotice('info','已正式送审','文件指纹已锁定，审核员可以开始试听。'); }
 function approve() { const s=selectedSubmission(); if(!s) return; const approval={...s,status:'approved',receiptId:`RCPT-${Date.now().toString().slice(-8)}`,approvedAt:nowLabel(),reviewer:demo.reviewer,tx:txId('0xreview_demo')}; state.approvals=[approval,...state.approvals.filter(a=>a.id!==s.id)]; state.submissions=state.submissions.map(x=>x.id===s.id?{...x,status:'approved'}:x); persist(); setNotice('info','审核通过并签发回执','接收方现在可以在独立核验页比对文件。'); }
 function reject() { const s=selectedSubmission(); if(!s) return; state.submissions=state.submissions.map(x=>x.id===s.id?{...x,status:'rejected'}:x); persist(); setNotice('error','已驳回这份成品','请重新制作并提交新的文件。'); }
 function handleVerifyFile(file) { if(!file) return; file.arrayBuffer().then(async b=>{state.verify.file={name:file.name,hash:await sha256Bytes(b)};state.verify.result=null;persist();render();}); }
-async function setVerifySample(kind) { const a=activeApproval(); if(!a) return; const v=kind==='match'?a.scriptVersion:(a.scriptVersion==='v1'?'v2':'v1'); const sample=demo.audio[v]; const hash=await hashText(sample.content); state.verify.file={name:sample.name,hash}; state.verify.result=hash===a.fileHash?'match':'mismatch'; persist(); render(); }
-function playTone() { const Ctx=window.AudioContext||window.webkitAudioContext; if(!Ctx) return; const ctx=new Ctx(); const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.frequency.value=kindOfTone(); gain.gain.value=.04; osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+.35); }
-function kindOfTone(){ return 440 + Math.round(Math.random()*90); }
+async function setVerifySample(kind) { const a=activeApproval(); if(!a) return; const v=kind==='match'?a.scriptVersion:(a.scriptVersion==='v1'?'v2':'v1'); const sample=await getDemoAudio(v); const hash=await sha256Bytes(await sample.arrayBuffer()); state.verify.file={name:sample.name,hash}; state.verify.result=hash===a.fileHash?'match':'mismatch'; persist(); render(); }
+function playDemoAudio(version) { const audio = new Audio(demo.audio[version].src); audio.play().catch(() => setNotice('error','浏览器阻止了自动播放','请点击页面中的音频控件或再次点击播放。')); }
+async function syncMonadStatus() { try { const cfg = await fetch('monad-config.json').then(r => r.json()); Object.assign(monad, cfg); const res = await fetch(monad.rpcUrl, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]}) }); const payload = await res.json(); const chainId = Number.parseInt(payload.result, 16); const rpcState = document.querySelector('#rpcState'); const chainState = document.querySelector('#chainState'); const dot = document.querySelector('#rpcDot'); if (rpcState) rpcState.textContent = chainId === monad.chainId ? 'RPC 已连通' : '链 ID 不匹配'; if (chainState) chainState.textContent = `${chainId} · ${monad.contractAddress ? '合约已部署' : '合约待部署'}`; if (dot) dot.style.background = chainId === monad.chainId ? 'var(--teal)' : 'var(--copper)'; } catch { const rpcState = document.querySelector('#rpcState'); if (rpcState) rpcState.textContent = 'RPC 不可用'; } }
 
 render();
+syncMonadStatus();
