@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node server.mjs",
     "chain:check": "node scripts/check-chain.mjs",
     "chain:deploy": "node scripts/deploy.mjs",
     "chain:record-authorization": "node scripts/record-chain.mjs",

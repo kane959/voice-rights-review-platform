@@ -11,19 +11,22 @@
 
 ## 运行
 
-在此目录打开终端：
+在此目录打开终端。要让页面按钮通过本地服务写入 Monad，使用：
+
+```powershell
+npm install
+npm run dev
+```
+
+然后访问 <http://localhost:4173>。服务端只在本机读取 `.env` 私钥，浏览器不会接触私钥；授权和审核按钮会分别调用 `/api/authorization` 与 `/api/review`。
+
+只做静态只读演示时，也可以使用：
 
 ```powershell
 python -m http.server 4173
 ```
 
-然后访问 <http://localhost:4173>。左下角会显示 RPC 连通状态和合约状态。
-
-也可以使用 Node：
-
-```powershell
-npx serve .
-```
+静态服务器没有 API，页面会保留本地演示流程，但不会把新的授权或审核写入链上。
 
 ## 演示路径
 
